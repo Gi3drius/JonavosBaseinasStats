@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<! DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -52,9 +52,9 @@
             text-align: center;
         }
         .stat-value {
-            font-size: 2. 5rem;
+            font-size: 2.5rem;
             font-weight: bold;
-            color: #2C9AB8;
+            color:  #2C9AB8;
         }
         .stat-label {
             color: #888;
@@ -67,7 +67,7 @@
         }
         .date-picker {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         .date-picker input {
             padding: 10px 20px;
@@ -76,6 +76,35 @@
             background:  rgba(255,255,255,0.1);
             color:  #fff;
             font-size: 1rem;
+        }
+        .date-buttons {
+            display:  flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        .date-btn {
+            padding:  8px 16px;
+            border-radius: 8px;
+            border:  none;
+            background: rgba(255,255,255,0.1);
+            color: #888;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .date-btn:hover {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+        .date-btn.active {
+            background: #2C9AB8;
+            color: #fff;
+        }
+        .date-btn.today {
+            border:  1px solid #2C9AB8;
         }
         .debug {
             background: rgba(255,0,0,0.2);
@@ -94,7 +123,11 @@
         <p class="subtitle">Hourly Maximum Occupancy</p>
         
         <div class="date-picker">
-            <input type="date" id="dateSelect" onchange="loadData()">
+            <input type="date" id="dateSelect" onchange="onDatePickerChange()">
+        </div>
+
+        <div class="date-buttons" id="dateButtons">
+            <!-- Date buttons will be generated here -->
         </div>
 
         <div class="stats">
@@ -132,12 +165,78 @@
         const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
 
         let chart = null;
+        let selectedDate = new Date().toISOString().split('T')[0];
 
         // Set default date to today
-        document.getElementById('dateSelect').value = new Date().toISOString().split('T')[0];
+        document.getElementById('dateSelect').value = selectedDate;
+
+        function formatDateForButton(date) {
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const d = new Date(date);
+            return `${months[d.getMonth()]} ${d.getDate()}`;
+        }
+
+        function addDays(dateStr, days) {
+            const date = new Date(dateStr);
+            date.setDate(date.getDate() + days);
+            return date. toISOString().split('T')[0];
+        }
+
+        function generateDateButtons() {
+            const container = document.getElementById('dateButtons');
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Calculate how many days to show on the right (up to today)
+            const selectedDateObj = new Date(selectedDate);
+            const todayObj = new Date(today);
+            const diffTime = todayObj - selectedDateObj;
+            const diffDays = Math. floor(diffTime / (1000 * 60 * 60 * 24));
+            const daysOnRight = Math.min(diffDays, 5);
+            
+            // Always 5 days on the left
+            const daysOnLeft = 5;
+            
+            let buttonsHtml = '';
+            
+            // Left buttons (past days)
+            for (let i = daysOnLeft; i >= 1; i--) {
+                const date = addDays(selectedDate, -i);
+                const label = formatDateForButton(date);
+                buttonsHtml += `<button class="date-btn" onclick="selectDate('${date}')">${label}</button>`;
+            }
+            
+            // Current selected date (center)
+            const currentLabel = formatDateForButton(selectedDate);
+            const isToday = selectedDate === today;
+            buttonsHtml += `<button class="date-btn active ${isToday ? 'today' : ''}" onclick="selectDate('${selectedDate}')">${currentLabel}${isToday ? ' (Today)' : ''}</button>`;
+            
+            // Right buttons (future days up to today)
+            for (let i = 1; i <= daysOnRight; i++) {
+                const date = addDays(selectedDate, i);
+                if (date <= today) {
+                    const label = formatDateForButton(date);
+                    const isTodayBtn = date === today;
+                    buttonsHtml += `<button class="date-btn ${isTodayBtn ? 'today' : ''}" onclick="selectDate('${date}')">${label}${isTodayBtn ? ' (Today)' : ''}</button>`;
+                }
+            }
+            
+            container. innerHTML = buttonsHtml;
+        }
+
+        function selectDate(date) {
+            selectedDate = date;
+            document.getElementById('dateSelect').value = date;
+            generateDateButtons();
+            loadData();
+        }
+
+        function onDatePickerChange() {
+            selectedDate = document.getElementById('dateSelect').value;
+            generateDateButtons();
+            loadData();
+        }
 
         async function loadData() {
-            const selectedDate = document.getElementById('dateSelect').value;
             const debugDiv = document.getElementById('debugInfo');
             
             try {
@@ -146,7 +245,7 @@
                 
                 // Parse Google Sheets JSON response
                 const json = JSON.parse(text. substring(47, text.length - 2));
-                const rows = json.table. rows;
+                const rows = json.table.rows;
                 
                 // Debug: Show raw data structure
                 console.log('Raw rows:', rows);
@@ -155,7 +254,7 @@
                 // Convert to data array with flexible date parsing
                 const allData = rows.map(row => {
                     // Handle Google Sheets date format:  Date(year,month,day)
-                    let dateValue = row.c[1]?.v || '';
+                    let dateValue = row. c[1]?.v || '';
                     let dateStr = '';
                     
                     if (typeof dateValue === 'string' && dateValue.startsWith('Date(')) {
@@ -211,20 +310,20 @@
                 document. getElementById('currentSpa').textContent = latest.spa;
                 document.getElementById('currentBaseinas').textContent = latest.baseinas;
                 
-                const peakSpa = Math.max(...Object.values(hourlyData).map(h => h.spa));
-                const peakBaseinas = Math.max(... Object.values(hourlyData).map(h => h.baseinas));
+                const peakSpa = Math.max(...Object. values(hourlyData).map(h => h.spa));
+                const peakBaseinas = Math. max(...Object.values(hourlyData).map(h => h.baseinas));
                 document.getElementById('peakSpa').textContent = peakSpa;
-                document. getElementById('peakBaseinas').textContent = peakBaseinas;
+                document.getElementById('peakBaseinas').textContent = peakBaseinas;
 
                 // Prepare chart data
                 const labels = Object.keys(hourlyData).map(h => `${h}:00`);
-                const spaData = Object.values(hourlyData).map(h => h.spa);
-                const baseinasData = Object.values(hourlyData).map(h => h.baseinas);
+                const spaData = Object.values(hourlyData).map(h => h. spa);
+                const baseinasData = Object. values(hourlyData).map(h => h.baseinas);
 
                 updateChart(labels, spaData, baseinasData);
 
             } catch (error) {
-                console.error('Error loading data:', error);
+                console. error('Error loading data:', error);
                 debugDiv.style.display = 'block';
                 debugDiv.textContent = 'Error:  ' + error.message;
             }
@@ -239,7 +338,7 @@
 
             chart = new Chart(ctx, {
                 type: 'line',
-                data:  {
+                data: {
                     labels: labels,
                     datasets: [
                         {
@@ -249,17 +348,17 @@
                             backgroundColor:  'rgba(231, 76, 60, 0.1)',
                             fill: true,
                             tension: 0.4,
-                            pointRadius:  4,
+                            pointRadius: 4,
                             pointHoverRadius: 6
                         },
                         {
                             label: 'Baseinas',
                             data: baseinasData,
                             borderColor: '#2C9AB8',
-                            backgroundColor:  'rgba(44, 154, 184, 0.1)',
+                            backgroundColor: 'rgba(44, 154, 184, 0.1)',
                             fill: true,
                             tension: 0.4,
-                            pointRadius:  4,
+                            pointRadius: 4,
                             pointHoverRadius:  6
                         }
                     ]
@@ -269,7 +368,7 @@
                     maintainAspectRatio: true,
                     plugins: {
                         legend: {
-                            labels:  {
+                            labels: {
                                 color: '#fff'
                             }
                         }
@@ -283,12 +382,12 @@
                                 color: '#888'
                             }
                         },
-                        y:  {
+                        y: {
                             beginAtZero: true,
                             grid:  {
                                 color: 'rgba(255,255,255,0.1)'
                             },
-                            ticks:  {
+                            ticks: {
                                 color: '#888'
                             }
                         }
@@ -297,7 +396,8 @@
             });
         }
 
-        // Load data on page load
+        // Initialize
+        generateDateButtons();
         loadData();
         
         // Auto-refresh every 5 minutes
