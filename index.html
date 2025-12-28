@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jonavos Baseinas - Occupancy Stats</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart. js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <style>
         * {
@@ -51,10 +51,13 @@
             padding: 20px;
             text-align: center;
         }
+        .stat-card.hidden {
+            display:  none;
+        }
         .stat-value {
-            font-size: 2.5rem;
+            font-size: 2. 5rem;
             font-weight: bold;
-            color:  #2C9AB8;
+            color: #2C9AB8;
         }
         .stat-label {
             color: #888;
@@ -74,8 +77,8 @@
             border-radius: 8px;
             border:  none;
             background:  rgba(255,255,255,0.1);
-            color:  #fff;
-            font-size: 1rem;
+            color: #fff;
+            font-size:  1rem;
         }
         .date-buttons {
             display:  flex;
@@ -101,7 +104,7 @@
         }
         .date-btn.active {
             background: #2C9AB8;
-            color: #fff;
+            color:  #fff;
         }
         .date-btn.today {
             border:  1px solid #2C9AB8;
@@ -130,22 +133,22 @@
             <!-- Date buttons will be generated here -->
         </div>
 
-        <div class="stats">
-            <div class="stat-card">
+        <div class="stats" id="statsContainer">
+            <div class="stat-card" id="currentSpaCard">
                 <div class="stat-value" id="currentSpa">-</div>
                 <div class="stat-label">Current SPA</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" id="currentBaseinasCard">
                 <div class="stat-value" id="currentBaseinas">-</div>
                 <div class="stat-label">Current Baseinas</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value" id="peakSpa">-</div>
-                <div class="stat-label">Peak SPA Today</div>
+                <div class="stat-label">Peak SPA</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value" id="peakBaseinas">-</div>
-                <div class="stat-label">Peak Baseinas Today</div>
+                <div class="stat-label">Peak Baseinas</div>
             </div>
         </div>
 
@@ -161,14 +164,14 @@
         const SHEET_ID = '1bNT-qL4B7_9ONpMGm2LtAmNwV_0xvHuiuV2IyRNFXik';
         const SHEET_NAME = 'Sheet1';
         
-        // For public sheets, use this URL format: 
+        // For public sheets, use this URL format:
         const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
 
         let chart = null;
         let selectedDate = new Date().toISOString().split('T')[0];
 
         // Set default date to today
-        document.getElementById('dateSelect').value = selectedDate;
+        document. getElementById('dateSelect').value = selectedDate;
 
         function formatDateForButton(date) {
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -180,6 +183,24 @@
             const date = new Date(dateStr);
             date.setDate(date.getDate() + days);
             return date. toISOString().split('T')[0];
+        }
+
+        function isToday(dateStr) {
+            const today = new Date().toISOString().split('T')[0];
+            return dateStr === today;
+        }
+
+        function updateCurrentStatsVisibility() {
+            const currentSpaCard = document.getElementById('currentSpaCard');
+            const currentBaseinasCard = document.getElementById('currentBaseinasCard');
+            
+            if (isToday(selectedDate)) {
+                currentSpaCard.classList.remove('hidden');
+                currentBaseinasCard.classList.remove('hidden');
+            } else {
+                currentSpaCard. classList.add('hidden');
+                currentBaseinasCard.classList.add('hidden');
+            }
         }
 
         function generateDateButtons() {
@@ -207,32 +228,34 @@
             
             // Current selected date (center)
             const currentLabel = formatDateForButton(selectedDate);
-            const isToday = selectedDate === today;
-            buttonsHtml += `<button class="date-btn active ${isToday ? 'today' : ''}" onclick="selectDate('${selectedDate}')">${currentLabel}${isToday ? ' (Today)' : ''}</button>`;
+            const isTodaySelected = isToday(selectedDate);
+            buttonsHtml += `<button class="date-btn active ${isTodaySelected ? 'today' : ''}" onclick="selectDate('${selectedDate}')">${currentLabel}${isTodaySelected ? ' (Today)' : ''}</button>`;
             
             // Right buttons (future days up to today)
             for (let i = 1; i <= daysOnRight; i++) {
                 const date = addDays(selectedDate, i);
                 if (date <= today) {
                     const label = formatDateForButton(date);
-                    const isTodayBtn = date === today;
-                    buttonsHtml += `<button class="date-btn ${isTodayBtn ? 'today' : ''}" onclick="selectDate('${date}')">${label}${isTodayBtn ? ' (Today)' : ''}</button>`;
+                    const isTodayBtn = isToday(date);
+                    buttonsHtml += `<button class="date-btn ${isTodayBtn ?  'today' : ''}" onclick="selectDate('${date}')">${label}${isTodayBtn ? ' (Today)' : ''}</button>`;
                 }
             }
             
-            container. innerHTML = buttonsHtml;
+            container.innerHTML = buttonsHtml;
         }
 
         function selectDate(date) {
             selectedDate = date;
             document.getElementById('dateSelect').value = date;
             generateDateButtons();
+            updateCurrentStatsVisibility();
             loadData();
         }
 
         function onDatePickerChange() {
             selectedDate = document.getElementById('dateSelect').value;
             generateDateButtons();
+            updateCurrentStatsVisibility();
             loadData();
         }
 
@@ -254,7 +277,7 @@
                 // Convert to data array with flexible date parsing
                 const allData = rows.map(row => {
                     // Handle Google Sheets date format:  Date(year,month,day)
-                    let dateValue = row. c[1]?.v || '';
+                    let dateValue = row.c[1]?.v || '';
                     let dateStr = '';
                     
                     if (typeof dateValue === 'string' && dateValue.startsWith('Date(')) {
@@ -277,7 +300,7 @@
                         date: dateStr,
                         hour: row.c[2]?.v || 0,
                         spa: row.c[3]?.v || 0,
-                        baseinas:  row.c[4]?.v || 0
+                        baseinas: row.c[4]?.v || 0
                     };
                 });
                 
@@ -305,12 +328,15 @@
                     }
                 });
 
-                // Update stats
-                const latest = filteredData[filteredData.length - 1] || { spa: 0, baseinas: 0 };
-                document. getElementById('currentSpa').textContent = latest.spa;
-                document.getElementById('currentBaseinas').textContent = latest.baseinas;
+                // Update current stats (only shown for today)
+                if (isToday(selectedDate)) {
+                    const latest = filteredData[filteredData.length - 1] || { spa: 0, baseinas: 0 };
+                    document.getElementById('currentSpa').textContent = latest.spa;
+                    document. getElementById('currentBaseinas').textContent = latest.baseinas;
+                }
                 
-                const peakSpa = Math.max(...Object. values(hourlyData).map(h => h.spa));
+                // Update peak stats
+                const peakSpa = Math.max(...Object.values(hourlyData).map(h => h.spa));
                 const peakBaseinas = Math. max(...Object.values(hourlyData).map(h => h.baseinas));
                 document.getElementById('peakSpa').textContent = peakSpa;
                 document.getElementById('peakBaseinas').textContent = peakBaseinas;
@@ -318,13 +344,13 @@
                 // Prepare chart data
                 const labels = Object.keys(hourlyData).map(h => `${h}:00`);
                 const spaData = Object.values(hourlyData).map(h => h. spa);
-                const baseinasData = Object. values(hourlyData).map(h => h.baseinas);
+                const baseinasData = Object.values(hourlyData).map(h => h.baseinas);
 
                 updateChart(labels, spaData, baseinasData);
 
             } catch (error) {
                 console. error('Error loading data:', error);
-                debugDiv.style.display = 'block';
+                debugDiv.style. display = 'block';
                 debugDiv.textContent = 'Error:  ' + error.message;
             }
         }
@@ -338,7 +364,7 @@
 
             chart = new Chart(ctx, {
                 type: 'line',
-                data: {
+                data:  {
                     labels: labels,
                     datasets: [
                         {
@@ -348,18 +374,18 @@
                             backgroundColor:  'rgba(231, 76, 60, 0.1)',
                             fill: true,
                             tension: 0.4,
-                            pointRadius: 4,
+                            pointRadius:  4,
                             pointHoverRadius: 6
                         },
                         {
                             label: 'Baseinas',
                             data: baseinasData,
                             borderColor: '#2C9AB8',
-                            backgroundColor: 'rgba(44, 154, 184, 0.1)',
+                            backgroundColor:  'rgba(44, 154, 184, 0.1)',
                             fill: true,
                             tension: 0.4,
-                            pointRadius: 4,
-                            pointHoverRadius:  6
+                            pointRadius:  4,
+                            pointHoverRadius: 6
                         }
                     ]
                 },
@@ -367,7 +393,7 @@
                     responsive: true,
                     maintainAspectRatio: true,
                     plugins: {
-                        legend: {
+                        legend:  {
                             labels: {
                                 color: '#fff'
                             }
@@ -376,14 +402,14 @@
                     scales: {
                         x: {
                             grid: {
-                                color: 'rgba(255,255,255,0.1)'
+                                color:  'rgba(255,255,255,0.1)'
                             },
                             ticks: {
-                                color: '#888'
+                                color:  '#888'
                             }
                         },
                         y: {
-                            beginAtZero: true,
+                            beginAtZero:  true,
                             grid:  {
                                 color: 'rgba(255,255,255,0.1)'
                             },
@@ -398,6 +424,7 @@
 
         // Initialize
         generateDateButtons();
+        updateCurrentStatsVisibility();
         loadData();
         
         // Auto-refresh every 5 minutes
