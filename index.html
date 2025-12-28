@@ -1,0 +1,258 @@
+<! DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jonavos Baseinas - Occupancy Stats</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        * {
+            margin:  0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background:  linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            padding:  20px;
+            color: #fff;
+        }
+        .container {
+            max-width:  1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #2C9AB8;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+        }
+        .chart-container {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #2C9AB8;
+        }
+        .stat-label {
+            color: #888;
+            margin-top:  5px;
+        }
+        . loading {
+            text-align: center;
+            padding: 50px;
+            color: #888;
+        }
+        .date-picker {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .date-picker input {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border:  none;
+            background:  rgba(255,255,255,0.1);
+            color:  #fff;
+            font-size: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏊 Jonavos Baseinas</h1>
+        <p class="subtitle">Hourly Maximum Occupancy</p>
+        
+        <div class="date-picker">
+            <input type="date" id="dateSelect" onchange="loadData()">
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="currentSpa">-</div>
+                <div class="stat-label">Current SPA</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="currentBaseinas">-</div>
+                <div class="stat-label">Current Baseinas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="peakSpa">-</div>
+                <div class="stat-label">Peak SPA Today</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="peakBaseinas">-</div>
+                <div class="stat-label">Peak Baseinas Today</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="occupancyChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Your Google Sheet ID (from the URL)
+        const SHEET_ID = '1bNT-qL4B7_9ONpMGm2LtAmNwV_0xvHuiuV2IyRNFXik';
+        const SHEET_NAME = 'Sheet1';
+        const API_KEY = '701464859446-dk5jdeajtoebhkjc1brmtgt23l5avptu.apps.googleusercontent.com'; // Optional: for public sheets you might not need this
+        
+        // For public sheets, use this URL format:
+        const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
+
+        let chart = null;
+
+        // Set default date to today
+        document.getElementById('dateSelect').value = new Date().toISOString().split('T')[0];
+
+        async function loadData() {
+            const selectedDate = document.getElementById('dateSelect').value;
+            
+            try {
+                const response = await fetch(SHEET_URL);
+                const text = await response.text();
+                
+                // Parse Google Sheets JSON response
+                const json = JSON.parse(text. substring(47, text.length - 2));
+                const rows = json.table.rows;
+                
+                // Convert to data array
+                const allData = rows.map(row => ({
+                    timestamp:  row. c[0]?.v || '',
+                    date:  row.c[1]?.v || '',
+                    hour:  row.c[2]?.v || 0,
+                    spa: row.c[3]?.v || 0,
+                    baseinas: row.c[4]?.v || 0
+                })).filter(d => d.date === selectedDate);
+
+                // Group by hour and get max values
+                const hourlyData = {};
+                for (let h = 0; h < 24; h++) {
+                    hourlyData[h] = { spa: 0, baseinas: 0 };
+                }
+                
+                allData.forEach(d => {
+                    const hour = d.hour;
+                    if (d.spa > hourlyData[hour].spa) {
+                        hourlyData[hour].spa = d.spa;
+                    }
+                    if (d.baseinas > hourlyData[hour]. baseinas) {
+                        hourlyData[hour].baseinas = d.baseinas;
+                    }
+                });
+
+                // Update stats
+                const latest = allData[allData.length - 1] || { spa: 0, baseinas: 0 };
+                document. getElementById('currentSpa').textContent = latest.spa;
+                document.getElementById('currentBaseinas').textContent = latest.baseinas;
+                document. getElementById('peakSpa').textContent = Math.max(... Object.values(hourlyData).map(h => h.spa));
+                document.getElementById('peakBaseinas').textContent = Math.max(...Object. values(hourlyData).map(h => h.baseinas));
+
+                // Prepare chart data
+                const labels = Object.keys(hourlyData).map(h => `${h}:00`);
+                const spaData = Object. values(hourlyData).map(h => h.spa);
+                const baseinasData = Object.values(hourlyData).map(h => h.baseinas);
+
+                updateChart(labels, spaData, baseinasData);
+
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+
+        function updateChart(labels, spaData, baseinasData) {
+            const ctx = document.getElementById('occupancyChart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data:  {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'SPA',
+                            data: spaData,
+                            borderColor: '#e74c3c',
+                            backgroundColor:  'rgba(231, 76, 60, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        },
+                        {
+                            label: 'Baseinas',
+                            data: baseinasData,
+                            borderColor: '#2C9AB8',
+                            backgroundColor: 'rgba(44, 154, 184, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointHoverRadius:  6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#fff'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255,255,255,0.1)'
+                            },
+                            ticks: {
+                                color: '#888'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid:  {
+                                color: 'rgba(255,255,255,0.1)'
+                            },
+                            ticks:  {
+                                color: '#888'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Load data on page load
+        loadData();
+        
+        // Auto-refresh every 5 minutes
+        setInterval(loadData, 5 * 60 * 1000);
+    </script>
+</body>
+</html>
