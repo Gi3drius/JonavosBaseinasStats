@@ -1,4 +1,4 @@
-<! DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -16,7 +16,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             background:  linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             min-height: 100vh;
-            padding:  20px;
+            padding: 20px;
             color: #fff;
         }
         .container {
@@ -52,13 +52,13 @@
             text-align: center;
         }
         .stat-value {
-            font-size: 2.5rem;
+            font-size: 2. 5rem;
             font-weight: bold;
             color: #2C9AB8;
         }
         .stat-label {
             color: #888;
-            margin-top:  5px;
+            margin-top: 5px;
         }
         .loading {
             text-align: center;
@@ -76,6 +76,15 @@
             background:  rgba(255,255,255,0.1);
             color:  #fff;
             font-size: 1rem;
+        }
+        .debug {
+            background: rgba(255,0,0,0.2);
+            padding: 10px;
+            margin:  10px 0;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size:  12px;
+            display: none;
         }
     </style>
 </head>
@@ -107,6 +116,8 @@
             </div>
         </div>
 
+        <div id="debugInfo" class="debug"></div>
+
         <div class="chart-container">
             <canvas id="occupancyChart"></canvas>
         </div>
@@ -116,9 +127,8 @@
         // Your Google Sheet ID (from the URL)
         const SHEET_ID = '1bNT-qL4B7_9ONpMGm2LtAmNwV_0xvHuiuV2IyRNFXik';
         const SHEET_NAME = 'Sheet1';
-        const API_KEY = '701464859446-dk5jdeajtoebhkjc1brmtgt23l5avptu.apps.googleusercontent.com'; // Optional: for public sheets you might not need this
         
-        // For public sheets, use this URL format:
+        // For public sheets, use this URL format: 
         const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
 
         let chart = null;
@@ -128,6 +138,7 @@
 
         async function loadData() {
             const selectedDate = document.getElementById('dateSelect').value;
+            const debugDiv = document.getElementById('debugInfo');
             
             try {
                 const response = await fetch(SHEET_URL);
@@ -135,16 +146,49 @@
                 
                 // Parse Google Sheets JSON response
                 const json = JSON.parse(text. substring(47, text.length - 2));
-                const rows = json.table.rows;
+                const rows = json.table. rows;
                 
-                // Convert to data array
-                const allData = rows.map(row => ({
-                    timestamp:  row. c[0]?.v || '',
-                    date:  row.c[1]?.v || '',
-                    hour:  row.c[2]?.v || 0,
-                    spa: row.c[3]?.v || 0,
-                    baseinas: row.c[4]?.v || 0
-                })).filter(d => d.date === selectedDate);
+                // Debug: Show raw data structure
+                console.log('Raw rows:', rows);
+                console.log('Selected date:', selectedDate);
+                
+                // Convert to data array with flexible date parsing
+                const allData = rows.map(row => {
+                    // Handle Google Sheets date format:  Date(year,month,day)
+                    let dateValue = row.c[1]?.v || '';
+                    let dateStr = '';
+                    
+                    if (typeof dateValue === 'string' && dateValue.startsWith('Date(')) {
+                        // Parse Date(2025,11,28) format (month is 0-indexed)
+                        const match = dateValue.match(/Date\((\d+),(\d+),(\d+)\)/);
+                        if (match) {
+                            const year = match[1];
+                            const month = String(parseInt(match[2]) + 1).padStart(2, '0');
+                            const day = String(match[3]).padStart(2, '0');
+                            dateStr = `${year}-${month}-${day}`;
+                        }
+                    } else if (dateValue instanceof Date) {
+                        dateStr = dateValue.toISOString().split('T')[0];
+                    } else {
+                        dateStr = String(dateValue);
+                    }
+                    
+                    return {
+                        timestamp: row.c[0]?.v || '',
+                        date: dateStr,
+                        hour: row.c[2]?.v || 0,
+                        spa: row.c[3]?.v || 0,
+                        baseinas:  row.c[4]?.v || 0
+                    };
+                });
+                
+                // Debug: Show parsed data
+                console. log('All parsed data:', allData);
+                console.log('Unique dates in data:', [...new Set(allData.map(d => d. date))]);
+                
+                // Filter by selected date
+                const filteredData = allData.filter(d => d.date === selectedDate);
+                console.log('Filtered data for', selectedDate, ':', filteredData);
 
                 // Group by hour and get max values
                 const hourlyData = {};
@@ -152,32 +196,37 @@
                     hourlyData[h] = { spa: 0, baseinas: 0 };
                 }
                 
-                allData.forEach(d => {
-                    const hour = d.hour;
-                    if (d.spa > hourlyData[hour].spa) {
+                filteredData.forEach(d => {
+                    const hour = parseInt(d.hour);
+                    if (d.spa > hourlyData[hour]. spa) {
                         hourlyData[hour].spa = d.spa;
                     }
-                    if (d.baseinas > hourlyData[hour]. baseinas) {
+                    if (d.baseinas > hourlyData[hour].baseinas) {
                         hourlyData[hour].baseinas = d.baseinas;
                     }
                 });
 
                 // Update stats
-                const latest = allData[allData.length - 1] || { spa: 0, baseinas: 0 };
+                const latest = filteredData[filteredData.length - 1] || { spa: 0, baseinas: 0 };
                 document. getElementById('currentSpa').textContent = latest.spa;
                 document.getElementById('currentBaseinas').textContent = latest.baseinas;
-                document. getElementById('peakSpa').textContent = Math.max(... Object.values(hourlyData).map(h => h.spa));
-                document.getElementById('peakBaseinas').textContent = Math.max(...Object. values(hourlyData).map(h => h.baseinas));
+                
+                const peakSpa = Math.max(...Object.values(hourlyData).map(h => h.spa));
+                const peakBaseinas = Math.max(... Object.values(hourlyData).map(h => h.baseinas));
+                document.getElementById('peakSpa').textContent = peakSpa;
+                document. getElementById('peakBaseinas').textContent = peakBaseinas;
 
                 // Prepare chart data
                 const labels = Object.keys(hourlyData).map(h => `${h}:00`);
-                const spaData = Object. values(hourlyData).map(h => h.spa);
+                const spaData = Object.values(hourlyData).map(h => h.spa);
                 const baseinasData = Object.values(hourlyData).map(h => h.baseinas);
 
                 updateChart(labels, spaData, baseinasData);
 
             } catch (error) {
                 console.error('Error loading data:', error);
+                debugDiv.style.display = 'block';
+                debugDiv.textContent = 'Error:  ' + error.message;
             }
         }
 
@@ -200,17 +249,17 @@
                             backgroundColor:  'rgba(231, 76, 60, 0.1)',
                             fill: true,
                             tension: 0.4,
-                            pointRadius: 4,
+                            pointRadius:  4,
                             pointHoverRadius: 6
                         },
                         {
                             label: 'Baseinas',
                             data: baseinasData,
                             borderColor: '#2C9AB8',
-                            backgroundColor: 'rgba(44, 154, 184, 0.1)',
+                            backgroundColor:  'rgba(44, 154, 184, 0.1)',
                             fill: true,
                             tension: 0.4,
-                            pointRadius: 4,
+                            pointRadius:  4,
                             pointHoverRadius:  6
                         }
                     ]
@@ -220,7 +269,7 @@
                     maintainAspectRatio: true,
                     plugins: {
                         legend: {
-                            labels: {
+                            labels:  {
                                 color: '#fff'
                             }
                         }
@@ -234,7 +283,7 @@
                                 color: '#888'
                             }
                         },
-                        y: {
+                        y:  {
                             beginAtZero: true,
                             grid:  {
                                 color: 'rgba(255,255,255,0.1)'
